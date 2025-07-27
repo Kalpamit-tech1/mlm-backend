@@ -91,13 +91,15 @@ async def create_or_update_user(data: UserData):
     update_fields = data.dict()
 
     if not existing_user:
-        # New user → generate a new unique referral code
+        # New user → generate referral code and set default payment_status
         referral_code = generate_unique_referral_code()
+        payment_status = False
     else:
-        # Existing user → keep their original referral code
+        # Existing user → preserve referral_code and existing payment_status
         referral_code = existing_user.get("referral_code")
+        payment_status = existing_user.get("payment_status", False)
 
-    # ❌ Prevent MongoDB update conflict
+    # Prevent update conflict
     update_fields.pop("referral_code", None)
 
     # Upsert user
@@ -105,7 +107,10 @@ async def create_or_update_user(data: UserData):
         {"firebase_uid": data.firebase_uid},
         {
             "$set": update_fields,
-            "$setOnInsert": {"referral_code": referral_code}
+            "$setOnInsert": {
+                "referral_code": referral_code,
+                "payment_status": payment_status
+            }
         },
         upsert=True
     )
@@ -114,6 +119,14 @@ async def create_or_update_user(data: UserData):
         "message": "User created" if not existing_user else "User updated",
         "referral_code": referral_code
     }
+
+# --- GET: Fetch User by UID ---
+@app.get("/user_data/{firebase_uid}")
+async def get_user(firebase_uid: str):
+    user = user_data.find_one({"firebase_uid": firebase_uid}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 # Run FastAPI server
 if __name__ == "__main__":
