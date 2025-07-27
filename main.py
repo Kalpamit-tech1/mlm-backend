@@ -47,10 +47,9 @@ class BankDetails(BaseModel):
 class UserData(BaseModel):
     firebase_uid: str 
 
-    name: str
-    email: EmailStr
-    password: str
-    referral_code: str  # ✅ Required now
+    name: Optional[str] = None
+    email: Optional[Emailstr] = None
+    referral_code: Optional[str] = None  
 
     sex: Optional[str] = None
     state: Optional[str] = None
