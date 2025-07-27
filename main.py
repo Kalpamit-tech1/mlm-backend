@@ -1,9 +1,12 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
-from fastapi import FastAPI, HTTPException, Request
-from typing import Optional, List, Dict, Literal
 import os
+import random
+import string
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, EmailStr, ConfigDict
 from pymongo import MongoClient
-from dotenv import load_doten
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
