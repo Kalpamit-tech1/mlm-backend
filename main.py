@@ -68,7 +68,7 @@ class UserData(BaseModel):
 def generate_unique_referral_code():
     while True:
         code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-        if not user_data_collection.find_one({"referral_code": code}):
+        if not user_data.find_one({"referral_code": code}):
             return code
     
 app = FastAPI()
