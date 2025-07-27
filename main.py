@@ -72,6 +72,15 @@ def generate_unique_referral_code():
     
 app = FastAPI()
 
+# Allow frontend domain (replace with your actual Vercel frontend URL)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # POST endpoint to insert user data
 # --- Endpoint ---
