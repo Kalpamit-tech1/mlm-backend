@@ -51,7 +51,7 @@ class UserData(BaseModel):
     firebase_uid: str 
 
     name: Optional[str] = None
-    email: Optional[Emailstr] = None
+    email: Optional[EmailStr] = None
     referral_code: Optional[str] = None  
 
     sex: Optional[str] = None
