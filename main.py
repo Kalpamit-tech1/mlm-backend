@@ -87,7 +87,7 @@ app.add_middleware(
 # --- Endpoint ---
 @app.post("/user_data")
 async def create_or_update_user(data: UserData):
-    existing_user = user_data_collection.find_one({"firebase_uid": data.firebase_uid})
+    existing_user = user_data.find_one({"firebase_uid": data.firebase_uid})
 
     update_fields = data.dict()
 
@@ -101,7 +101,7 @@ async def create_or_update_user(data: UserData):
         update_fields["referral_code"] = referral_code  # Ensure it's preserved
 
     # Perform the upsert
-    user_data_collection.update_one(
+    user_data.update_one(
         {"firebase_uid": data.firebase_uid},
         {"$set": update_fields, "$setOnInsert": {"referral_code": referral_code}},
         upsert=True
