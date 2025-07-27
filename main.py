@@ -4,6 +4,7 @@ import string
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, ConfigDict
 from pymongo import MongoClient
 from dotenv import load_dotenv
