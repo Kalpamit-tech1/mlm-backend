@@ -88,22 +88,25 @@ app.add_middleware(
 @app.post("/user_data")
 async def create_or_update_user(data: UserData):
     existing_user = user_data.find_one({"firebase_uid": data.firebase_uid})
-
     update_fields = data.dict()
 
     if not existing_user:
         # New user → generate referral code
         referral_code = generate_unique_referral_code()
-        update_fields["referral_code"] = referral_code
     else:
         # Use the existing referral code if updating
         referral_code = existing_user.get("referral_code", data.referral_code)
-        update_fields["referral_code"] = referral_code  # Ensure it's preserved
+
+    # ⚠️ Remove referral_code from update_fields to avoid conflict
+    update_fields.pop("referral_code", None)
 
     # Perform the upsert
     user_data.update_one(
         {"firebase_uid": data.firebase_uid},
-        {"$set": update_fields, "$setOnInsert": {"referral_code": referral_code}},
+        {
+            "$set": update_fields,
+            "$setOnInsert": {"referral_code": referral_code}
+        },
         upsert=True
     )
 
