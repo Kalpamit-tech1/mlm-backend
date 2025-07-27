@@ -53,7 +53,7 @@ class UserData(BaseModel):
 
     name: Optional[str] = None
     email: Optional[EmailStr] = None
-    referral_code: Optional[str] = None  
+    reference_code: Optional[str] = None  
 
     sex: Optional[str] = None
     state: Optional[str] = None
@@ -91,16 +91,16 @@ async def create_or_update_user(data: UserData):
     update_fields = data.dict()
 
     if not existing_user:
-        # New user → generate referral code
+        # New user → generate a new unique referral code
         referral_code = generate_unique_referral_code()
     else:
-        # Use the existing referral code if updating
-        referral_code = existing_user.get("referral_code", data.referral_code)
+        # Existing user → keep their original referral code
+        referral_code = existing_user.get("referral_code")
 
-    # ⚠️ Remove referral_code from update_fields to avoid conflict
+    # ❌ Prevent MongoDB update conflict
     update_fields.pop("referral_code", None)
 
-    # Perform the upsert
+    # Upsert user
     user_data.update_one(
         {"firebase_uid": data.firebase_uid},
         {
