@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, ConfigDict
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from fastapi import Query
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,6 +32,7 @@ client = MongoClient(connection_string)
 # Database: kalpamit_admin
 kalpamit_admin = client["kalpamit_admin"]
 admin_payments = kalpamit_admin["admin_payments"]
+withdrawal_requests = kalpamit_admin["admin_withdrawal_requests"]
 
 # Database: kalpamit_mlm_users
 kalpamit_mlm_users = client["kalpamit_mlm_users"]
@@ -144,6 +147,71 @@ async def get_user(firebase_uid: str):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+# --- GET: Fetch User's Team upto 3 levels ---
+@app.get("/team")
+async def get_team(firebase_uid: str = Query(...)):
+    # Step 1: Get referral code for the user
+    user = user_data.find_one({"firebase_uid": firebase_uid})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    root_referral_code = user.get("referral_code")
+    if not root_referral_code:
+        raise HTTPException(status_code=400, detail="Referral code not found for this user")
+
+    # Helper function to fetch users referred by given referral codes
+    def find_users_by_referral(ref_codes):
+        referred_users = list(user_data.find(
+            {"reference_code": {"$in": ref_codes}},
+            {"_id": 0, "name": 1, "referral_code": 1}
+        ))
+        return referred_users
+
+    # Step 2: Build the 3-level team
+    team = {}
+
+    # Level 1
+    level_1_users = find_users_by_referral([root_referral_code])
+    team["level_1"] = level_1_users
+
+    # Level 2
+    level_1_codes = [user["referral_code"] for user in level_1_users]
+    level_2_users = find_users_by_referral(level_1_codes)
+    team["level_2"] = level_2_users
+
+    # Level 3
+    level_2_codes = [user["referral_code"] for user in level_2_users]
+    level_3_users = find_users_by_referral(level_2_codes)
+    team["level_3"] = level_3_users
+
+    return team
+
+# --- GET: Fetch User's Transactions ---
+
+@app.get("/payments")
+async def get_or_create_payment(firebase_uid: str = Query(...)):
+    # Step 1: Check if payment document exists
+    payment_doc = user_payments.find_one({"firebase_uid": firebase_uid}, {"_id": 0})
+    if payment_doc:
+        return payment_doc
+
+    # Step 2: Check if user exists
+    user_exists = user_data.find_one({"firebase_uid": firebase_uid})
+    if not user_exists:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Step 3: Create and insert an empty payment document with default fields
+    empty_doc = {
+        "firebase_uid": firebase_uid,
+        "amount": 0,
+        "transactions": [],
+        "last_updated": datetime.utcnow()
+    }
+
+    user_payments.insert_one(empty_doc)
+
+    return empty_doc
 
 # Run FastAPI server
 if __name__ == "__main__":
