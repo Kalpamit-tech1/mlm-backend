@@ -73,6 +73,10 @@ def generate_unique_referral_code():
         code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
         if not user_data.find_one({"referral_code": code}):
             return code
+
+class WithdrawalRequest(BaseModel):
+    firebase_uid: str
+    amount: float  # you can change this to int if needed
     
 app = FastAPI()
 
@@ -188,7 +192,6 @@ async def get_team(firebase_uid: str = Query(...)):
     return team
 
 # --- GET: Fetch User's Transactions ---
-
 @app.get("/payments")
 async def get_or_create_payment(firebase_uid: str = Query(...)):
     # Step 1: Check if payment document exists
@@ -201,10 +204,9 @@ async def get_or_create_payment(firebase_uid: str = Query(...)):
     if not user_exists:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Step 3: Create and insert an empty payment document with default fields
+    # Step 3: Create and insert an empty payment document
     empty_doc = {
         "firebase_uid": firebase_uid,
-        "amount": 0,
         "transactions": [],
         "last_updated": datetime.utcnow()
     }
@@ -212,6 +214,30 @@ async def get_or_create_payment(firebase_uid: str = Query(...)):
     user_payments.insert_one(empty_doc)
 
     return empty_doc
+
+
+# --- POST: post withdrawal request ---
+@app.post("/withdrawal_request")
+async def raise_withdrawal_request(data: WithdrawalRequest):
+    # Step 1: Find user
+    user = user_data.find_one({"firebase_uid": data.firebase_uid})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    name = user.get("name", "Unknown")
+
+    # Step 2: Insert request
+    request_doc = {
+        "firebase_uid": data.firebase_uid,
+        "name": name,
+        "amount": data.amount,
+        "requested_at": datetime.utcnow()
+    }
+
+    withdrawal_requests.insert_one(request_doc)
+
+    return {"message": "Withdrawal request submitted", "request": request_doc}
+
 
 # Run FastAPI server
 if __name__ == "__main__":
