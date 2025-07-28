@@ -91,25 +91,39 @@ async def create_or_update_user(data: UserData):
     update_fields = data.dict()
 
     if not existing_user:
-        # New user → generate referral code and set default payment_status
+        # New user → generate referral code and default values
         referral_code = generate_unique_referral_code()
         payment_status = False
+
+        # Handle reference code lookup
+        referred_by_name = None
+        reference_code = update_fields.get("reference_code")
+
+        if reference_code:
+            referrer = user_data.find_one({"referral_code": reference_code})
+            if referrer:
+                referred_by_name = referrer.get("name")
+            else:
+                raise HTTPException(status_code=400, detail="Invalid reference code")
     else:
-        # Existing user → preserve referral_code and existing payment_status
+        # Existing user → preserve previous values
         referral_code = existing_user.get("referral_code")
         payment_status = existing_user.get("payment_status", False)
+        referred_by_name = existing_user.get("referred_by")
 
-    # Prevent update conflict
+    # Clean up fields that shouldn't be overwritten
     update_fields.pop("referral_code", None)
+    update_fields.pop("reference_code", None)
 
-    # Upsert user
+    # Upsert the user
     user_data.update_one(
         {"firebase_uid": data.firebase_uid},
         {
             "$set": update_fields,
             "$setOnInsert": {
                 "referral_code": referral_code,
-                "payment_status": payment_status
+                "payment_status": payment_status,
+                "referred_by": referred_by_name
             }
         },
         upsert=True
@@ -117,7 +131,8 @@ async def create_or_update_user(data: UserData):
 
     return {
         "message": "User created" if not existing_user else "User updated",
-        "referral_code": referral_code
+        "referral_code": referral_code,
+        "referred_by": referred_by_name
     }
 
 # --- GET: Fetch User by UID ---
