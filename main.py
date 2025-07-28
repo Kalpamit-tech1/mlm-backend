@@ -84,7 +84,6 @@ app.add_middleware(
 
 
 # POST endpoint to insert user data
-# --- Endpoint ---
 @app.post("/user_data")
 async def create_or_update_user(data: UserData):
     existing_user = user_data.find_one({"firebase_uid": data.firebase_uid})
@@ -110,10 +109,10 @@ async def create_or_update_user(data: UserData):
         referral_code = existing_user.get("referral_code")
         payment_status = existing_user.get("payment_status", False)
         referred_by_name = existing_user.get("referred_by")
+        reference_code = existing_user.get("reference_code_used")  # Preserve if already set
 
-    # Clean up fields that shouldn't be overwritten
+    # Clean up fields that shouldn't be overwritten directly
     update_fields.pop("referral_code", None)
-    update_fields.pop("reference_code", None)
 
     # Upsert the user
     user_data.update_one(
@@ -123,7 +122,8 @@ async def create_or_update_user(data: UserData):
             "$setOnInsert": {
                 "referral_code": referral_code,
                 "payment_status": payment_status,
-                "referred_by": referred_by_name
+                "referred_by": referred_by_name,
+                "reference_code_used": reference_code  # <-- Preserve input reference code
             }
         },
         upsert=True
@@ -132,8 +132,10 @@ async def create_or_update_user(data: UserData):
     return {
         "message": "User created" if not existing_user else "User updated",
         "referral_code": referral_code,
-        "referred_by": referred_by_name
+        "referred_by": referred_by_name,
+        "reference_code_used": reference_code
     }
+
 
 # --- GET: Fetch User by UID ---
 @app.get("/user_data/{firebase_uid}")
